@@ -8,4 +8,6 @@
 #include <assert.h>
 #include <Xinput.h>
 
+#include <d3d11.h>
+
 #endif //PCH_H
