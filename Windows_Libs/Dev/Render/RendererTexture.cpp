@@ -5,7 +5,7 @@ unsigned char* dataStart;
 unsigned char* dataCurr;
 unsigned char* dataEnd;
 
-DXGI_FORMAT Renderer::textureFormats[] = { DXGI_FORMAT_R8G8B8A8_UNORM };
+DXGI_FORMAT Renderer::textureFormats[] = { DXGI_FORMAT_B8G8R8A8_UNORM };
 
 void user_write_data_init(unsigned char* pBuffer, int size)
 {
@@ -220,8 +220,9 @@ HRESULT Renderer::LoadTextureData(const char* szFilename, D3DXIMAGE_INFO* pSrcIn
 
     png_image_begin_read_from_file(&image, szFilename);
 
-    if ((image.format & 3u) > 1)
-        return -1;
+    // TODO(3UR): why crash?
+    //if ((image.format & 3u) > 1)
+    //    return -1;
 
     image.format = PNG_FORMAT_RGBA;
 
@@ -242,8 +243,9 @@ HRESULT Renderer::LoadTextureData(BYTE* pbData, DWORD dwBytes, D3DXIMAGE_INFO* p
 
     png_image_begin_read_from_memory(&image, pbData, dwBytes);
 
-    if ((image.format & 3u) > 1)
-        return -1;
+    // TODO(3UR): why crash?
+    //if ((image.format & 3u) > 1)
+    //    return -1;
 
     image.format = PNG_FORMAT_RGBA;
 
@@ -263,7 +265,7 @@ HRESULT Renderer::SaveTextureData(const char* szFilename, D3DXIMAGE_INFO* pSrcIn
     image.width = pSrcInfo->Width;
     image.height = pSrcInfo->Height;
     image.version = PNG_IMAGE_VERSION;
-    image.format = PNG_FORMAT_RGB;
+    image.format = PNG_FORMAT_RGBA;
 
     png_image_write_to_file(&image, szFilename, 0, ppDataOut, 0, NULL);
     return S_OK;
@@ -276,7 +278,7 @@ HRESULT Renderer::SaveTextureDataToMemory(void* pOutput, int outputCapacity, int
     image.width = width;
     image.height = height;
     image.version = PNG_IMAGE_VERSION;
-    image.format = PNG_FORMAT_RGB;
+    image.format = PNG_FORMAT_RGBA;
 
     dataEnd = (BYTE*)pOutput + outputCapacity;
     dataStart = (BYTE*)pOutput;
