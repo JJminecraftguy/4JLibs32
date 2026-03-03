@@ -201,8 +201,8 @@ void Renderer::TextureData(int width, int height, void* data, int level, C4JRend
         level,
         NULL,
         data,
-        (UINT)(width * 4),
-        (UINT)(width * height * 4)
+        static_cast<UINT>(width * 4),
+        static_cast<UINT>(width * height * 4)
     );
 }
 
@@ -228,8 +228,8 @@ void Renderer::TextureDataUpdate(int xoffset, int yoffset, int width, int height
         level,
         &box,
         data,
-        (UINT)(width * 4),
-        (UINT)(width * height * 4)
+        static_cast<UINT>(width * 4),
+        static_cast<UINT>(width * height * 4)
     );
 }
 
