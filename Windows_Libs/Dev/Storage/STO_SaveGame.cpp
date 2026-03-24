@@ -172,7 +172,7 @@ C4JStorage::ESaveGameState CSaveGame::GetSavesInfo(int iPad, int (*Func)(LPVOID 
                     strcpy_s(m_pSaveDetails->SaveInfoA[i].UTF8SaveTitle, szTitleName);
 
                     char fileName[280];
-                    sprintf(fileName, "%s\\Windows64\\GameHDD\\%s\\%s.ms", dirName, findFileData.cFileName, szTitleName);
+                    sprintf(fileName, "%s\\Windows64\\GameHDD\\%s\\%s", dirName, findFileData.cFileName, saveFileData.cFileName);
 
                     GetFileAttributesExA(fileName, GetFileExInfoStandard, &fileInfoBuffer);
                     m_pSaveDetails->SaveInfoA[i].metaData.dataSize = fileInfoBuffer.nFileSizeLow;
@@ -181,10 +181,24 @@ C4JStorage::ESaveGameState CSaveGame::GetSavesInfo(int iPad, int (*Func)(LPVOID 
                     char thumbName[280];
                     sprintf(thumbName, "%s\\Windows64\\GameHDD\\%s\\thumbnails\\thumbData.png", dirName, findFileData.cFileName);
 
-                    GetFileAttributesExA(thumbName, GetFileExInfoStandard, &fileInfoBuffer);
-                    m_pSaveDetails->SaveInfoA[i++].metaData.thumbnailSize = fileInfoBuffer.nFileSizeLow;
+                    // don't try loading a thumbnail if the file doesn't exist
+                    BOOL res = GetFileAttributesExA(thumbName, GetFileExInfoStandard, &fileInfoBuffer);
+                    if (res == 0)
+                    {
+                        if (m_pSaveDetails->SaveInfoA[i].thumbnailData)
+                        {
+                            free(m_pSaveDetails->SaveInfoA[i].thumbnailData);
+                            m_pSaveDetails->SaveInfoA[i].thumbnailData = nullptr;
+                        }
+                        m_pSaveDetails->SaveInfoA[i].metaData.thumbnailSize = fileInfoBuffer.nFileSizeLow;
+                    }
+                    else
+                    {
+                        m_pSaveDetails->SaveInfoA[i].metaData.thumbnailSize = fileInfoBuffer.nFileSizeLow;
+                    }
 
                     m_pSaveDetails->iSaveC++;
+                    i++;
                 }
             } while (FindNextFileA(fi, &findFileData));
             FindClose(fi);
@@ -288,7 +302,31 @@ C4JStorage::ESaveGameState CSaveGame::LoadSaveData(PSAVE_INFO pSaveInfo, int (*F
     GetCurrentDirectoryA(sizeof(curDir), curDir);
     sprintf(dirName, "%s/Windows64/GameHDD/%s", curDir, m_szSaveUniqueName);
     CreateDirectoryA(dirName, 0);
-    sprintf(fileName, "%s/%s.ms", dirName, this->m_szSaveTitle); // @Patoke add
+    
+    // @Patoke add
+    char searchPath[280];
+    sprintf(searchPath, "%s\\*", dirName);
+
+    WIN32_FIND_DATAA saveFileData;
+    HANDLE hSaveFile = FindFirstFileA(searchPath, &saveFileData);
+
+    char szTitleName[256] = {0};
+
+    if (hSaveFile != INVALID_HANDLE_VALUE)
+    {
+        do
+        {
+            // there should always be only 1 file in this directory which is the save file
+            if (!(saveFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+            {
+                sprintf(fileName, "%s/%s", dirName, saveFileData.cFileName);
+                break;
+            }
+            // @Patoke todo: add fail case?
+        } while (FindNextFileA(hSaveFile, &saveFileData));
+
+        FindClose(hSaveFile);
+    }
 
     HANDLE h = CreateFileA(fileName, GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
 
@@ -542,16 +580,44 @@ C4JStorage::ESaveGameState CSaveGame::DeleteSaveData(PSAVE_INFO pSaveInfo, int (
     char dirName[256];
     char curDir[256];
     char fileName[280];
+    char thumbDir[280];
     char thumbName[280];
 
     GetCurrentDirectoryA(sizeof(curDir), curDir);
 
     sprintf(dirName, "%s/Windows64/GameHDD/%s", curDir, pSaveInfo->UTF8SaveFilename);
     sprintf(fileName, "%s/%s.ms", dirName, pSaveInfo->UTF8SaveTitle);
-    sprintf(thumbName, "%s/thumbnails/thumbData.png", dirName);
+    sprintf(thumbDir, "%s/thumbnails", dirName);
+    sprintf(thumbName, "%s/thumbData.png", thumbDir);
 
-    DeleteFileA(fileName);
+    // delete all files under the unique save directory
+    char searchPath[280];
+    sprintf(searchPath, "%s\\*", dirName);
+
+    WIN32_FIND_DATAA saveFileData;
+    HANDLE hSaveFile = FindFirstFileA(searchPath, &saveFileData);
+
+    char szTitleName[256] = {0};
+
+    if (hSaveFile != INVALID_HANDLE_VALUE)
+    {
+        do
+        {
+            if (!(saveFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+            {
+                sprintf(fileName, "%s/%s", dirName, saveFileData.cFileName);
+                DeleteFileA(fileName);
+                break;
+            }
+            // @Patoke todo: add fail case?
+        } while (FindNextFileA(hSaveFile, &saveFileData));
+
+        FindClose(hSaveFile);
+    }
+
+    // delete thumbnails and directories
     DeleteFileA(thumbName);
+    RemoveDirectoryA(thumbDir);
     RemoveDirectoryA(dirName);
 
     PSAVE_INFO m_pDeleteInfo = pSaveInfo; // only here for consistency with the xbox one assert
