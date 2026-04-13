@@ -53,7 +53,7 @@ jobs:
  
           Copy-Item "$base/4J_Profile$suffix.lib"  "staging/"
           Copy-Item "$base/4J_Input$suffix.lib"    "staging/"
-          Copy-Item "$base/4J_Render$suffix.lib"   "staging/4J_Render_PC$suffix.lib"
+          Copy-Item "$base/4J_Render_PC$suffix.lib"   "staging/"
           Copy-Item "$base/4J_Storage$suffix.lib"  "staging/"
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
