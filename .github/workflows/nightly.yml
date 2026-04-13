@@ -49,12 +49,12 @@ jobs:
 
           $cfg    = "${{ matrix.config }}"
           $suffix = if ($cfg -eq "Debug") { "_d" } else { "" }
-          $base   = "Windows_Libs/Dev"
-
-          Copy-Item "$base/Profile/x64/$cfg/4J_Profile.obj"  "staging/4J_Profile$suffix.obj"
-          Copy-Item "$base/Input/x64/$cfg/4J_Input.obj"      "staging/4J_Input$suffix.obj"
-          Copy-Item "$base/Render/x64/$cfg/4J_Render.obj"    "staging/4J_Render_PC$suffix.obj"
-          Copy-Item "$base/Storage/x64/$cfg/4J_Storage.obj"  "staging/4J_Storage$suffix.obj"
+          $base   = "Windows_Libs/Dev/x64/$cfg"
+ 
+          Copy-Item "$base/4J_Profile$suffix.lib"  "staging/"
+          Copy-Item "$base/4J_Input$suffix.lib"    "staging/"
+          Copy-Item "$base/4J_Render$suffix.lib"   "staging/4J_Render_PC$suffix.lib"
+          Copy-Item "$base/4J_Storage$suffix.lib"  "staging/"
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -88,14 +88,14 @@ jobs:
             ### Included libraries
             | File | Config |
             |------|--------|
-            | `4J_Profile.obj` | Release |
-            | `4J_Input.obj` | Release |
-            | `4J_Render_PC.obj` | Release |
-            | `4J_Storage.obj` | Release |
-            | `4J_Profile_d.obj` | Debug |
-            | `4J_Input_d.obj` | Debug |
-            | `4J_Render_PC_d.obj` | Debug |
-            | `4J_Storage_d.obj` | Debug |
+            | `4J_Profile.lib` | Release |
+            | `4J_Input.lib` | Release |
+            | `4J_Render_PC.lib` | Release |
+            | `4J_Storage.lib` | Release |
+            | `4J_Profile_d.lib` | Debug |
+            | `4J_Input_d.lib` | Debug |
+            | `4J_Render_PC_d.lib` | Debug |
+            | `4J_Storage_d.lib` | Debug |
           files: |
             nightly.zip
 
