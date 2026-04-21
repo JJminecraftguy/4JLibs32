@@ -20,7 +20,12 @@
       "cmakeCommandArgs": "",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
+<<<<<<< HEAD
       "inheritEnvironments": [ "msvc_x64_x64" ]
+=======
+      "inheritEnvironments": [ "msvc_x64_x64" ],
+      "variables": []
+>>>>>>> e0ae7b1 (feat: better cmake support (#21))
     }
   ]
 }
