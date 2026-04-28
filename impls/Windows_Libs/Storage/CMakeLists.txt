@@ -27,3 +27,9 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 	OUTPUT_NAME "4J_Storage"
     ARCHIVE_OUTPUT_DIRECTORY "${4JLibs_SOURCE_DIR}/libs"
 )
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        OUTPUT_NAME "4J_Storage32"
+    )
+endif()

@@ -1,61 +1,37 @@
 name: Nightly Release
-
 on:
   workflow_dispatch:
   push:
     branches:
-      - 'master'
-    paths:
-      - '**'
-      - '!.gitignore'
-      - '!LICENSE'
-      - '!*.md'
-      - '!.clang-format'
-      - '!.github/**'
-      - '.github/workflows/nightly.yml'
-      - '!*.txt'
-
+      - master
 permissions:
   contents: write
-
 concurrency:
   group: nightly
   cancel-in-progress: true
-
 jobs:
   build:
     runs-on: windows-latest
-
     strategy:
       matrix:
         config: [Debug, Release]
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Add MSBuild to PATH
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Build ${{ matrix.config }} x64
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Configure CMake
         run: |
-          msbuild Windows_Libs/Dev/Dev.slnx `
-            /p:Configuration=${{ matrix.config }} `
-            /p:Platform=x64 `
-            /m
-
+          cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+      - name: Build
+        run: |
+          cmake --build build --config ${{ matrix.config }}
       - name: Stage artifacts
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path staging
-
-          $cfg    = "${{ matrix.config }}"
-          $suffix = if ($cfg -eq "Debug") { "_d" } else { "" }
-          $base   = "Windows_Libs/Dev/x64/$cfg"
- 
-          Copy-Item "$base/4J_Profile$suffix.lib"  "staging/"
-          Copy-Item "$base/4J_Input$suffix.lib"    "staging/"
-          Copy-Item "$base/4J_Render_PC$suffix.lib"   "staging/"
-          Copy-Item "$base/4J_Storage$suffix.lib"  "staging/"
+          Get-ChildItem libs -Filter "*.lib" -Recurse |
+            Copy-Item -Destination staging
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -65,17 +41,14 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
-
       - name: Zip artifacts
         run: zip -j nightly.zip artifacts/*
-
       - name: Update release
         uses: andelf/nightly-release@main
         env:
@@ -85,7 +58,6 @@ jobs:
           name: Nightly Release
           body: |
             Automated nightly build from commit ${{ github.sha }} on branch `${{ github.ref_name }}`.
-
             ### Included libraries
             | File | Config |
             |------|--------|
@@ -104,7 +76,6 @@ jobs:
     needs: [build, release]
     if: always()
     runs-on: ubuntu-latest
-
     steps:
       - name: Cleanup artifacts
         uses: geekyeggo/delete-artifact@v5
