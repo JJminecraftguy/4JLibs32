@@ -1,54 +1,94 @@
 name: Nightly Release
+
 on:
   workflow_dispatch:
   push:
     branches:
       - master
+
 permissions:
   contents: write
+
 concurrency:
   group: nightly
   cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-latest
+
     strategy:
+      fail-fast: false
       matrix:
+        arch: [x64, x86]
         config: [Debug, Release]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+
       - name: Configure CMake
+        shell: pwsh
         run: |
-          cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+          $buildDir = "build/${{ matrix.arch }}-${{ matrix.config }}"
+
+          cmake -S . -B $buildDir -G Ninja `
+            -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+
       - name: Build
+        shell: pwsh
         run: |
-          cmake --build build --config ${{ matrix.config }}
+          $buildDir = "build/${{ matrix.arch }}-${{ matrix.config }}"
+          cmake --build $buildDir --config ${{ matrix.config }} --parallel
+
       - name: Stage artifacts
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path staging
-          Get-ChildItem libs -Filter "*.lib" -Recurse |
-            Copy-Item -Destination staging
+          $stageDir = "staging/${{ matrix.arch }}/${{ matrix.config }}"
+          New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
+
+          $libraries = Get-ChildItem libs -Filter "*.lib" -Recurse
+
+          if (-not $libraries) {
+            throw "No .lib files were produced."
+          }
+
+          $libraries | Copy-Item -Destination $stageDir
+
+          @"
+          Architecture: ${{ matrix.arch }}
+          Configuration: ${{ matrix.config }}
+          Commit: ${{ github.sha }}
+          "@ | Set-Content "$stageDir/BUILD-INFO.txt"
+
+          Get-ChildItem $stageDir
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-${{ matrix.config }}
-          path: staging/*
+          name: libs-${{ matrix.arch }}-${{ matrix.config }}
+          path: staging/${{ matrix.arch }}/${{ matrix.config }}/*
+          if-no-files-found: error
+          retention-days: 1
 
   release:
     needs: build
     runs-on: ubuntu-latest
+
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          merge-multiple: true
-      - name: Zip artifacts
-        run: zip -j nightly.zip artifacts/*
+
+      - name: Package artifacts
+        run: zip -r nightly.zip artifacts
+
       - name: Update release
         uses: andelf/nightly-release@main
         env:
@@ -57,27 +97,32 @@ jobs:
           tag_name: nightly
           name: Nightly Release
           body: |
-            Automated nightly build from commit ${{ github.sha }} on branch `${{ github.ref_name }}`.
-            ### Included libraries
-            | File | Config |
-            |------|--------|
-            | `4J_Profile.lib` | Release |
-            | `4J_Input.lib` | Release |
-            | `4J_Render_PC.lib` | Release |
-            | `4J_Storage.lib` | Release |
-            | `4J_Profile_d.lib` | Debug |
-            | `4J_Input_d.lib` | Debug |
-            | `4J_Render_PC_d.lib` | Debug |
-            | `4J_Storage_d.lib` | Debug |
+            Automated nightly build.
+
+            Commit: `${{ github.sha }}`
+            Branch: `${{ github.ref_name }}`
+
+            ## Build results
+
+            All four build configurations completed successfully before this release was published.
+
+            | Architecture | Configuration | Result |
+            |--------------|---------------|--------|
+            | x64 (64-bit) | Release | Successful |
+            | x64 (64-bit) | Debug | Successful |
+            | x86 (32-bit) | Release | Successful |
+            | x86 (32-bit) | Debug | Successful |
+
+            ## Included libraries
+
+            The archive contains the libraries produced by each build, organized by architecture and configuration.
+
+            - `libs-x64-Release`
+            - `libs-x64-Debug`
+            - `libs-x86-Release`
+            - `libs-x86-Debug`
+
+            The 32-bit libraries use the `32` naming convention defined by the project's CMake configuration.
+
           files: |
             nightly.zip
-
-  cleanup:
-    needs: [build, release]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Cleanup artifacts
-        uses: geekyeggo/delete-artifact@v5
-        with:
-          name: build-*
